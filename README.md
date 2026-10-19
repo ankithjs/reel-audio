@@ -27,7 +27,8 @@ browser the first time. New versions install over the old one and keep your libr
   [whisper.cpp](https://github.com/ggml-org/whisper.cpp); no audio is uploaded anywhere.
 - **Links:** share any website, tool or skill page to Reel Audio (or paste it after tapping **+**).
   It lands in the **Links** tab with its name, description, preview image and the page's text.
-  Websites mentioned in a saved reel, in the caption or said out loud ("gamma dot app"), are
+  Websites mentioned in a saved reel, in the caption or said out loud ("gamma dot app"), and about
+  100 well-known tools named without a website ("plan it in Notion", "ask ChatGPT") are
   saved there too, marked with the reel they came from. Copy or share any link, or a whole reel,
   as plain text. Links use the same groups as clips.
 - **Shared files:** you can also share a video or audio file (for example a screen recording) to

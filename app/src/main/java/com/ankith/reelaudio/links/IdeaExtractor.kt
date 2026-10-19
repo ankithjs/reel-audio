@@ -2,7 +2,7 @@ package com.ankith.reelaudio.links
 
 /**
  * Finds websites mentioned in a reel's caption or spoken words, including spoken forms
- * like "notion dot so".
+ * like "notion dot so" and well-known tools named without a website (see [KnownTools]).
  */
 object IdeaExtractor {
     private const val TLDS = "com|ai|io|app|dev|org|net|co|in|so|xyz|me|tools|tool|gg|tv|ly|to|site|tech|design|studio|space|page|club|pro|info|cc|us|uk"
@@ -29,6 +29,9 @@ object IdeaExtractor {
         SPOKEN_DOMAIN.findAll(text).forEach { m ->
             found += "https://${m.groupValues[1].lowercase()}.${m.groupValues[2].lowercase()}/"
         }
+        // Tools named without a website ("make slides with Gamma AI"), unless their site was found above.
+        val hosts = found.mapNotNull { host(it) }.toSet()
+        KnownTools.find(text).filter { host(it) !in hosts }.forEach { found += it }
         val excluded = exclude?.trimEnd('/')?.lowercase()
         return found.filter { url ->
             val host = host(url) ?: return@filter false

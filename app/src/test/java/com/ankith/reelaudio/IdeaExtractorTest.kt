@@ -23,6 +23,23 @@ class IdeaExtractorTest {
         )
     }
 
+    @Test fun findsToolsNamedWithoutAWebsite() {
+        val text = """
+            I plan my week in Notion and make slides with gamma ai.
+            Then I ask chatgpt to check it. Perplexity is my search engine: perplexity.ai
+            Move the cursor, it's a linear notion of time.
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                "https://perplexity.ai/",
+                "https://www.notion.so/",
+                "https://gamma.app/",
+                "https://chatgpt.com/",
+            ),
+            IdeaExtractor.findLinks(text),
+        )
+    }
+
     @Test fun skipsTheReelItselfAndPlainWords() {
         assertEquals(
             emptyList<String>(),
