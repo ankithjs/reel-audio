@@ -30,9 +30,18 @@ class MigrationTest {
             openHelper.writableDatabase.apply {
                 execSQL("DROP TABLE links")
                 execSQL("DROP TABLE link_groups")
-                execSQL("ALTER TABLE clips DROP COLUMN transcript")
-                execSQL("ALTER TABLE clips DROP COLUMN transcriptLang")
-                execSQL("ALTER TABLE clips DROP COLUMN transcriptStatus")
+                // Rebuild clips without the transcript columns (Robolectric's SQLite has no DROP COLUMN).
+                val v1Columns = "id, sourceUrl, title, author, caption, subtitles, durationSec, filePath, thumbPath, status, error, createdAt"
+                execSQL(
+                    "CREATE TABLE clips_v1 (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceUrl` TEXT NOT NULL, " +
+                        "`title` TEXT NOT NULL, `author` TEXT NOT NULL, `caption` TEXT NOT NULL, `subtitles` TEXT NOT NULL, " +
+                        "`durationSec` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `thumbPath` TEXT NOT NULL, " +
+                        "`status` TEXT NOT NULL, `error` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                execSQL("INSERT INTO clips_v1 ($v1Columns) SELECT $v1Columns FROM clips")
+                execSQL("DROP TABLE clips")
+                execSQL("ALTER TABLE clips_v1 RENAME TO clips")
+                execSQL("CREATE UNIQUE INDEX `index_clips_sourceUrl` ON `clips` (`sourceUrl`)")
                 version = 1
             }
             close()
