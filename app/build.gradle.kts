@@ -16,6 +16,11 @@ android {
         targetSdk = 35
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "0.1.0"
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DCMAKE_BUILD_TYPE=Release")
+            }
+        }
         ndk {
             // Almost every phone from the last few years is arm64; one ABI keeps the APK small.
             abiFilters += listOf("arm64-v8a")
@@ -56,6 +61,13 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
 
     testOptions {
         unitTests.isIncludeAndroidResources = true

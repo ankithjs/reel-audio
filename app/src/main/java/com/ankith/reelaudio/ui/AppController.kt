@@ -4,6 +4,7 @@ import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.GroupWithCount
 import com.ankith.reelaudio.playback.PlayerControls
 import com.ankith.reelaudio.playback.PlayerUi
+import com.ankith.reelaudio.transcribe.ModelState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +34,11 @@ interface AppController {
     fun storageUsedMb(): Double
     fun isSignedIn(): Boolean
     fun signOut()
+    val speechModel: StateFlow<ModelState>
+    fun downloadSpeechModel()
+    fun deleteSpeechModel()
+    fun transcribe(clip: Clip)
+    fun transcribeAll()
     fun exportBackup(target: android.net.Uri)
     fun importBackup(source: android.net.Uri)
 }

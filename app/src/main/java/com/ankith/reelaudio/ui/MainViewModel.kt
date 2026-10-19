@@ -11,6 +11,7 @@ import com.ankith.reelaudio.data.Library
 import com.ankith.reelaudio.library
 import com.ankith.reelaudio.playback.PlayerConnection
 import com.ankith.reelaudio.playback.PlayerUi
+import com.ankith.reelaudio.transcribe.ModelState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -144,6 +145,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
         library.downloader.cookiesFile.delete()
         android.webkit.CookieManager.getInstance().removeAllCookies(null)
         message.value = "Signed out of Instagram."
+    }
+
+    override val speechModel: StateFlow<ModelState> get() = library.speech.state
+
+    override fun downloadSpeechModel() {
+        viewModelScope.launch {
+            library.speech.download()
+            if (library.speech.isReady) {
+                val n = library.transcribeMissing()
+                message.value = if (n > 0) "Speech model ready. Writing out $n clips…" else "Speech model ready."
+            }
+        }
+    }
+
+    override fun deleteSpeechModel() {
+        viewModelScope.launch { library.speech.delete() }
+    }
+
+    override fun transcribe(clip: Clip) {
+        if (!library.speech.isReady) {
+            message.value = "Turn on speech to text in Settings first (one-time download)."
+            return
+        }
+        library.transcribe(clip.id)
+    }
+
+    override fun transcribeAll() {
+        viewModelScope.launch {
+            val n = library.transcribeMissing()
+            message.value = if (n == 0) "Every clip already has its speech written out." else "Writing out $n clips…"
+        }
     }
 
     override fun exportBackup(target: Uri) {

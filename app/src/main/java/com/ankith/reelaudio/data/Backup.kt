@@ -35,6 +35,8 @@ class Backup(private val context: Context, private val library: Library) {
                     put("author", c.author)
                     put("caption", c.caption)
                     put("subtitles", c.subtitles)
+                    put("transcript", c.transcript)
+                    put("transcriptLang", c.transcriptLang)
                     put("durationSec", c.durationSec)
                     put("createdAt", c.createdAt)
                     put("media", "media/" + File(c.filePath).name)
@@ -101,6 +103,10 @@ class Backup(private val context: Context, private val library: Library) {
                             author = c.optString("author"),
                             caption = c.optString("caption"),
                             subtitles = c.optString("subtitles"),
+                            transcript = c.optString("transcript"),
+                            transcriptLang = c.optString("transcriptLang"),
+                            transcriptStatus = if (c.optString("transcript").isNotBlank()) TranscriptStatus.DONE
+                            else TranscriptStatus.NONE,
                             durationSec = c.optInt("durationSec"),
                             createdAt = c.optLong("createdAt", System.currentTimeMillis()),
                             status = ClipStatus.READY,

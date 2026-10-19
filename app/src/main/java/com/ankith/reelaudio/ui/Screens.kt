@@ -109,6 +109,9 @@ import coil.compose.AsyncImage
 import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.ClipStatus
 import com.ankith.reelaudio.data.GroupWithCount
+import com.ankith.reelaudio.data.TranscriptStatus
+import com.ankith.reelaudio.transcribe.ModelState
+import com.ankith.reelaudio.transcribe.SpeechModel
 import com.ankith.reelaudio.playback.PlayerUi
 import java.io.File
 
@@ -431,7 +434,6 @@ internal fun MiniPlayer(p: PlayerUi, vm: AppController, onOpen: () -> Unit) {
 @Composable
 internal fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: AppController, onDismiss: () -> Unit) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val cues = remember(clip?.subtitles) { parseVtt(clip?.subtitles.orEmpty()) }
     var dragging by remember { mutableStateOf(false) }
     var dragPos by remember { mutableFloatStateOf(0f) }
 
@@ -498,16 +500,11 @@ internal fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: AppController, onDism
                 TextButton(onClick = { vm.player.cycleSpeed() }) { Text("${p.speed}x") }
             }
 
-            if (cues.isNotEmpty()) {
-                val current = cues.lastOrNull { p.positionMs >= it.startMs }
+            if (clip != null) {
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    current?.text.orEmpty(),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    color = Accent,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                )
+                TranscriptBlock(clip, vm, positionMs = p.positionMs)
             }
             if (!clip?.caption.isNullOrBlank()) {
                 Spacer(Modifier.height(16.dp))
@@ -569,6 +566,12 @@ internal fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: AppControll
                     Text(clip.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
+            if (clip.status == ClipStatus.READY) {
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                TranscriptBlock(clip, vm, positionMs = null)
+                Spacer(Modifier.height(8.dp))
+            }
             if (clip.caption.isNotBlank()) {
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
@@ -591,6 +594,90 @@ internal fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: AppControll
         confirmButton = { TextButton(onClick = { vm.delete(clip); confirmDelete = false; onDismiss() }) { Text("Delete") } },
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
     )
+}
+
+private val LANGUAGES = mapOf(
+    "en" to "English", "hi" to "Hindi", "ur" to "Urdu", "mr" to "Marathi", "bn" to "Bengali",
+    "ta" to "Tamil", "te" to "Telugu", "kn" to "Kannada", "ml" to "Malayalam", "gu" to "Gujarati",
+    "pa" to "Punjabi", "ne" to "Nepali", "ar" to "Arabic", "es" to "Spanish", "fr" to "French",
+)
+
+/**
+ * What's said in the clip, in English. While playing ([positionMs] set) the current line is
+ * highlighted like song lyrics.
+ */
+@Composable
+internal fun TranscriptBlock(clip: Clip, vm: AppController, positionMs: Long?) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val cues = remember(clip.subtitles) { parseVtt(clip.subtitles) }
+    val fullText = clip.transcript.ifBlank { cues.joinToString("\n") { it.text } }
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("What they say", style = MaterialTheme.typography.labelLarge)
+                val lang = clip.transcriptLang
+                if (fullText.isNotBlank() && lang.isNotBlank() && lang != "en") Text(
+                    "Translated from ${LANGUAGES[lang] ?: lang.uppercase()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (fullText.isNotBlank()) TextButton(onClick = {
+                clipboard.setText(AnnotatedString(fullText))
+                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Copy")
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        when {
+            clip.transcriptStatus == TranscriptStatus.QUEUED || clip.transcriptStatus == TranscriptStatus.WORKING -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    if (clip.transcriptStatus == TranscriptStatus.WORKING) "Writing out the speech… about a minute per minute of audio."
+                    else "Waiting to write out the speech…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            cues.isNotEmpty() -> SelectionContainer {
+                Column {
+                    val current = positionMs?.let { pos -> cues.lastOrNull { pos >= it.startMs } }
+                    cues.forEach { cue ->
+                        val active = cue == current
+                        Text(
+                            cue.text,
+                            style = if (active) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                            color = if (active) Accent else if (positionMs != null) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        )
+                    }
+                }
+            }
+            clip.transcriptStatus == TranscriptStatus.DONE -> Text(
+                "No speech found in this clip.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> Column {
+                if (clip.transcriptStatus == TranscriptStatus.FAILED) Text(
+                    "Couldn't write out the speech. ${clip.error}".trim(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                TextButton(onClick = { vm.transcribe(clip) }) { Text("Write out the speech") }
+            }
+        }
+    }
 }
 
 /** The reel's caption: tap Copy for the whole text, or long-press to select part of it. */
@@ -760,6 +847,8 @@ internal fun SettingsSheet(vm: AppController, onDismiss: () -> Unit) {
                 ) { context.startActivity(Intent(context, LoginActivity::class.java)) }
             }
             HorizontalDivider()
+            SpeechSettings(vm)
+            HorizontalDivider()
             SettingRow("Update extractor", "Run this if saving suddenly stops working.") { vm.updateExtractor() }
             HorizontalDivider()
             SettingRow(
@@ -780,6 +869,35 @@ internal fun SettingsSheet(vm: AppController, onDismiss: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun SpeechSettings(vm: AppController) {
+    val state by vm.speechModel.collectAsState()
+    when (val st = state) {
+        ModelState.Missing -> SettingRow(
+            "Speech to text",
+            "Download the speech model once (${SpeechModel.MODEL_SIZE_MB} MB, use Wi-Fi) to write out what's said " +
+                "in every clip, in English. It runs on your phone; nothing is uploaded.",
+        ) { vm.downloadSpeechModel() }
+        is ModelState.Downloading -> Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
+            Text("Downloading speech model… ${st.percent}%")
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(progress = { st.percent / 100f }, modifier = Modifier.fillMaxWidth())
+        }
+        is ModelState.Failed -> SettingRow("Speech model download failed", "${st.reason} Tap to try again.") {
+            vm.downloadSpeechModel()
+        }
+        ModelState.Ready -> Column {
+            SettingRow(
+                "Write out speech for all clips",
+                "Speech to text is on. New clips are done automatically; this catches up older ones.",
+            ) { vm.transcribeAll() }
+            TextButton(onClick = { vm.deleteSpeechModel() }) {
+                Text("Remove speech model (frees ${SpeechModel.MODEL_SIZE_MB} MB)")
+            }
         }
     }
 }

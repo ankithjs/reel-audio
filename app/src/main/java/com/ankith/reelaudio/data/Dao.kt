@@ -24,6 +24,9 @@ interface ClipDao {
     @Query("SELECT * FROM clip_groups")
     suspend fun allLinks(): List<ClipGroup>
 
+    @Query("SELECT id FROM clips WHERE status = 'READY' AND transcriptStatus IN (:statuses)")
+    suspend fun idsWithTranscript(statuses: List<String>): List<Long>
+
     @Query("SELECT * FROM clips WHERE id = :id")
     suspend fun get(id: Long): Clip?
 

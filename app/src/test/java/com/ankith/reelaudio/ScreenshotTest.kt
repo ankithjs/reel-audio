@@ -19,6 +19,8 @@ import com.ankith.reelaudio.data.ClipStatus
 import com.ankith.reelaudio.data.GroupWithCount
 import com.ankith.reelaudio.playback.PlayerControls
 import com.ankith.reelaudio.playback.PlayerUi
+import com.ankith.reelaudio.transcribe.ModelState
+import com.ankith.reelaudio.data.TranscriptStatus
 import com.ankith.reelaudio.ui.AppController
 import com.ankith.reelaudio.ui.AppRoot
 import com.ankith.reelaudio.ui.ClipSheet
@@ -102,11 +104,19 @@ private val SAMPLE = listOf(
         id = 1, sourceUrl = "https://www.instagram.com/reel/a/", status = ClipStatus.READY,
         title = "The obstacle is the way", author = "daily.stoic.notes", durationSec = 72, filePath = "x",
         caption = "The impediment to action advances action. What stands in the way becomes the way.\n\n— Marcus Aurelius, Meditations 5.20\n\n#stoicism #philosophy #marcusaurelius",
-        subtitles = "WEBVTT\n\n00:00:30.000 --> 00:00:40.000\nwhat stands in the way becomes the way\n",
+        transcriptLang = "hi", transcriptStatus = TranscriptStatus.DONE,
+        transcript = "",
+        subtitles = "WEBVTT\n\n" +
+            "00:00:00.000 --> 00:00:09.000\nWhen something blocks your path, don't run from it.\n\n" +
+            "00:00:09.000 --> 00:00:21.000\nThe obstacle itself becomes the way forward.\n\n" +
+            "00:00:21.000 --> 00:00:33.000\nWhatever stands in front of you is your teacher.\n\n" +
+            "00:00:33.000 --> 00:00:45.000\nSo stop complaining, and start walking through it.\n\n" +
+            "00:00:45.000 --> 00:00:58.000\nThat is how a person truly grows.\n",
     ),
     Clip(
         id = 2, sourceUrl = "https://www.instagram.com/reel/b/", status = ClipStatus.READY,
         title = "Do not go gentle into that good night", author = "spoken.verse", durationSec = 95, filePath = "x",
+        transcriptStatus = TranscriptStatus.WORKING,
         caption = "Dylan Thomas, read aloud. Save this for the nights you need it. #poetry #spokenword",
     ),
     Clip(
@@ -174,6 +184,11 @@ private class FakeApp(
     override fun storageUsedMb() = 46.3
     override fun isSignedIn() = true
     override fun signOut() {}
+    override val speechModel = MutableStateFlow<ModelState>(ModelState.Ready)
+    override fun downloadSpeechModel() {}
+    override fun deleteSpeechModel() {}
+    override fun transcribe(clip: Clip) {}
+    override fun transcribeAll() {}
     override fun exportBackup(target: android.net.Uri) {}
     override fun importBackup(source: android.net.Uri) {}
 }

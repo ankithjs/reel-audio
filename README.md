@@ -20,6 +20,11 @@ browser the first time. New versions install over the old one and keep your libr
   shows controls on the lock screen. Shuffle, repeat, ±10 s and playback speed are in the player.
 - **Captions:** the text the creator wrote under the reel is saved with each clip, along with the author. Tap **Copy** in the player or the ⋮ menu to copy it, or long-press to select part of it. Timed subtitles are saved
   too whenever the source provides them.
+- **Speech to text ("What they say"):** turn it on once in **Settings → Speech to text**
+  (downloads a 190 MB model, use Wi-Fi). From then on every clip gets the spoken words written
+  out in English, shown like song lyrics with the current line highlighted while it plays.
+  Hindi and other languages are translated into English. It runs entirely on the phone with
+  [whisper.cpp](https://github.com/ggml-org/whisper.cpp); no audio is uploaded anywhere.
 - **Shared files:** you can also share a video or audio file (for example a screen recording) to
   Reel Audio to add it.
 

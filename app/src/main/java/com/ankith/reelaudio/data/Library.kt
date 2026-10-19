@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.ankith.reelaudio.download.ReelDownloader
+import com.ankith.reelaudio.transcribe.SpeechModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,7 +17,52 @@ import java.io.File
 class Library(private val context: Context) {
     val db = AppDatabase.get(context)
     val downloader = ReelDownloader(context)
+    val speech = SpeechModel(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val transcribeQueue = Channel<Long>(Channel.UNLIMITED)
+
+    init {
+        // One clip at a time, so the phone stays responsive.
+        scope.launch { for (id in transcribeQueue) runTranscribe(id) }
+        // Pick up anything that was waiting when the app last closed.
+        scope.launch {
+            if (speech.isReady) {
+                db.clips().idsWithTranscript(listOf("QUEUED", "WORKING")).forEach { transcribeQueue.trySend(it) }
+            }
+        }
+    }
+
+    /** Queues speech-to-text for one clip. */
+    fun transcribe(clipId: Long) = scope.launch {
+        val clip = db.clips().get(clipId) ?: return@launch
+        db.clips().update(clip.copy(transcriptStatus = TranscriptStatus.QUEUED))
+        transcribeQueue.trySend(clipId)
+    }
+
+    /** Queues every saved clip that has no transcript yet. Returns how many. */
+    suspend fun transcribeMissing(): Int {
+        val ids = db.clips().idsWithTranscript(listOf("NONE", "FAILED"))
+        ids.forEach { transcribe(it) }
+        return ids.size
+    }
+
+    private suspend fun runTranscribe(clipId: Long) {
+        val clip = db.clips().get(clipId) ?: return
+        if (clip.status != ClipStatus.READY || clip.filePath.isBlank()) return
+        db.clips().update(clip.copy(transcriptStatus = TranscriptStatus.WORKING))
+        val updated = try {
+            val t = speech.transcribe(clip.filePath)
+            (db.clips().get(clipId) ?: return).copy(
+                transcript = t.text,
+                transcriptLang = t.language,
+                subtitles = if (t.text.isNotBlank()) t.vtt else clip.subtitles,
+                transcriptStatus = TranscriptStatus.DONE,
+            )
+        } catch (t: Throwable) {
+            (db.clips().get(clipId) ?: return).copy(transcriptStatus = TranscriptStatus.FAILED, error = t.message ?: "")
+        }
+        db.clips().update(updated)
+    }
 
     /** Saves every link found in [text]. Returns how many new links were queued. */
     suspend fun addFromText(text: String, groupId: Long? = null): Int {
@@ -54,6 +101,7 @@ class Library(private val context: Context) {
                     status = ClipStatus.READY, error = "",
                 )
             )
+            if (speech.isReady) transcribe(clipId)
         } catch (t: Throwable) {
             val clip = db.clips().get(clipId) ?: return
             db.clips().update(clip.copy(status = ClipStatus.FAILED, error = t.message ?: t.toString()))
@@ -74,6 +122,7 @@ class Library(private val context: Context) {
             }
             val clip = db.clips().get(id)!!
             db.clips().update(clip.copy(filePath = target.absolutePath, status = ClipStatus.READY))
+            if (speech.isReady) transcribe(id)
         } catch (t: Throwable) {
             db.clips().get(id)?.let { db.clips().update(it.copy(status = ClipStatus.FAILED, error = "Couldn't read that file.")) }
         }
