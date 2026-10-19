@@ -58,8 +58,10 @@ interface ClipDao {
 @Dao
 interface GroupDao {
     @Query(
-        "SELECT g.id AS id, g.name AS name, COUNT(cg.clipId) AS count FROM user_groups g " +
-            "LEFT JOIN clip_groups cg ON cg.groupId = g.id GROUP BY g.id ORDER BY g.name COLLATE NOCASE"
+        "SELECT g.id AS id, g.name AS name, " +
+            "(SELECT COUNT(*) FROM clip_groups WHERE groupId = g.id) + " +
+            "(SELECT COUNT(*) FROM link_groups WHERE groupId = g.id) AS count " +
+            "FROM user_groups g ORDER BY g.name COLLATE NOCASE"
     )
     fun allWithCounts(): Flow<List<GroupWithCount>>
 
@@ -80,4 +82,55 @@ interface GroupDao {
 
     @Query("DELETE FROM clip_groups WHERE groupId = :id")
     suspend fun clearLinks(id: Long)
+
+    @Query("DELETE FROM link_groups WHERE groupId = :id")
+    suspend fun clearLinkMembers(id: Long)
+}
+
+@Dao
+interface LinkDao {
+    @Query("SELECT * FROM links ORDER BY createdAt DESC")
+    fun all(): Flow<List<SavedLink>>
+
+    @Query(
+        "SELECT links.* FROM links JOIN link_groups ON links.id = link_groups.linkId " +
+            "WHERE link_groups.groupId = :groupId ORDER BY links.createdAt DESC"
+    )
+    fun inGroup(groupId: Long): Flow<List<SavedLink>>
+
+    @Query("SELECT * FROM links WHERE sourceClipId = :clipId ORDER BY createdAt")
+    fun forClip(clipId: Long): Flow<List<SavedLink>>
+
+    @Query("SELECT * FROM links")
+    suspend fun allOnce(): List<SavedLink>
+
+    @Query("SELECT * FROM links WHERE id = :id")
+    suspend fun get(id: Long): SavedLink?
+
+    @Query("SELECT * FROM links WHERE url = :url")
+    suspend fun byUrl(url: String): SavedLink?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(link: SavedLink): Long
+
+    @Update
+    suspend fun update(link: SavedLink)
+
+    @Query("DELETE FROM links WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT groupId FROM link_groups WHERE linkId = :linkId")
+    fun groupIdsFor(linkId: Long): Flow<List<Long>>
+
+    @Query("SELECT * FROM link_groups")
+    suspend fun allMemberships(): List<LinkGroup>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addToGroup(link: LinkGroup)
+
+    @Query("DELETE FROM link_groups WHERE linkId = :linkId AND groupId = :groupId")
+    suspend fun removeFromGroup(linkId: Long, groupId: Long)
+
+    @Query("DELETE FROM link_groups WHERE linkId = :linkId")
+    suspend fun clearGroups(linkId: Long)
 }

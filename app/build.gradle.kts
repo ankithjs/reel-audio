@@ -102,6 +102,7 @@ dependencies {
 
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("org.jsoup:jsoup:1.18.1")
 
     // Screenshot tests: render the real screens on the JVM to PNGs.
     testImplementation("junit:junit:4.13.2")

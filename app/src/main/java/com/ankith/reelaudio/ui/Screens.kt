@@ -79,6 +79,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Slider
@@ -109,19 +111,20 @@ import coil.compose.AsyncImage
 import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.ClipStatus
 import com.ankith.reelaudio.data.GroupWithCount
+import com.ankith.reelaudio.data.SavedLink
 import com.ankith.reelaudio.data.TranscriptStatus
 import com.ankith.reelaudio.transcribe.ModelState
 import com.ankith.reelaudio.transcribe.SpeechModel
 import com.ankith.reelaudio.playback.PlayerUi
 import java.io.File
 
-private val Accent = Color(0xFF9E7BFF)
+internal val Accent = Color(0xFF9E7BFF)
 
 /** Screenshot tests flip this to draw sheets inline, since popups aren't captured. */
 val LocalInlineSheets = staticCompositionLocalOf { false }
 
 @Composable
-private fun AppSheet(
+internal fun AppSheet(
     onDismiss: () -> Unit,
     state: SheetState? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -138,17 +141,25 @@ private fun AppSheet(
 }
 
 @Composable
-fun AppRoot(vm: AppController, pendingShare: String?, onShareHandled: () -> Unit) {
+fun AppRoot(vm: AppController, pendingShare: String?, initialTab: Int = 0, onShareHandled: () -> Unit) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Accent, secondary = Accent)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            LibraryScreen(vm, pendingShare, onShareHandled)
+            LibraryScreen(vm, pendingShare, onShareHandled, initialTab)
         }
     }
 }
 
 @Composable
-internal fun LibraryScreen(vm: AppController, pendingShare: String?, onShareHandled: () -> Unit) {
+internal fun LibraryScreen(
+    vm: AppController,
+    pendingShare: String?,
+    onShareHandled: () -> Unit,
+    initialTab: Int = 0,
+) {
     val clips by vm.clips.collectAsState()
+    val links by vm.links.collectAsState()
+    var tab by remember { mutableStateOf(initialTab) }
+    var sheetLink by remember { mutableStateOf<SavedLink?>(null) }
     val groups by vm.groups.collectAsState()
     val selected by vm.selectedGroup.collectAsState()
     val query by vm.query.collectAsState()
@@ -178,7 +189,7 @@ internal fun LibraryScreen(vm: AppController, pendingShare: String?, onShareHand
                     if (showSearch) {
                         OutlinedTextField(
                             value = query, onValueChange = { vm.query.value = it },
-                            placeholder = { Text("Search title, author, caption") },
+                            placeholder = { Text(if (tab == 0) "Search title, author, caption" else "Search links") },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                     } else Text("Reel Audio", fontWeight = FontWeight.Bold)
@@ -193,7 +204,7 @@ internal fun LibraryScreen(vm: AppController, pendingShare: String?, onShareHand
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, "Add reel link") }
+            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, "Add a reel or link") }
         },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
@@ -207,7 +218,13 @@ internal fun LibraryScreen(vm: AppController, pendingShare: String?, onShareHand
                 onLongPress = { editGroup = it },
                 onNew = { showNewGroup = true },
             )
-            if (clips.isEmpty()) {
+            TabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
+                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Audio · ${clips.size}") })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Links · ${links.size}") })
+            }
+            if (tab == 1) {
+                LinksList(links, vm, filtered = selected != null || query.isNotBlank(), onOpen = { sheetLink = it })
+            } else if (clips.isEmpty()) {
                 EmptyState(filtered = selected != null || query.isNotBlank())
             } else {
                 Row(
@@ -241,6 +258,10 @@ internal fun LibraryScreen(vm: AppController, pendingShare: String?, onShareHand
         }
     }
 
+    sheetLink?.let { l ->
+        val live = links.firstOrNull { it.id == l.id } ?: l
+        LinkSheet(live, groups, vm, onDismiss = { sheetLink = null })
+    }
     if (showAdd || pendingShare != null) {
         AddLinkDialog(
             initial = pendingShare.orEmpty(),
@@ -348,7 +369,11 @@ internal fun EmptyState(filtered: Boolean) {
 }
 
 @Composable
-private fun Thumb(path: String, size: Int) {
+internal fun Thumb(
+    path: String,
+    size: Int,
+    placeholder: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.MusicNote,
+) {
     Box(
         Modifier.size(size.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF2A2440)),
         contentAlignment = Alignment.Center,
@@ -358,7 +383,7 @@ private fun Thumb(path: String, size: Int) {
                 model = File(path), contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
             )
-        } else Icon(Icons.Default.MusicNote, null, tint = Accent)
+        } else Icon(placeholder, null, tint = Accent)
     }
 }
 
@@ -571,6 +596,10 @@ internal fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: AppControll
                 Spacer(Modifier.height(8.dp))
                 TranscriptBlock(clip, vm, positionMs = null)
                 Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                MentionedLinks(clip, vm)
+                Spacer(Modifier.height(8.dp))
             }
             if (clip.caption.isNotBlank()) {
                 HorizontalDivider()
@@ -704,7 +733,7 @@ private fun CaptionBlock(caption: String) {
 }
 
 @Composable
-private fun SheetAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+internal fun SheetAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -732,12 +761,12 @@ internal fun AddLinkDialog(
     BackHandler(onBack = onDismiss)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save reel audio") },
+        title = { Text("Save a reel or link") },
         text = {
             Column {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
-                    label = { Text("Reel link(s), one per line") },
+                    label = { Text("Reel or website links, one per line") },
                     minLines = 2, maxLines = 6, modifier = Modifier.fillMaxWidth(),
                 )
                 TextButton(onClick = {
@@ -765,7 +794,7 @@ internal fun AddLinkDialog(
 }
 
 @Composable
-private fun TextPromptDialog(
+internal fun TextPromptDialog(
     title: String,
     hint: String,
     initial: String,
@@ -853,7 +882,7 @@ internal fun SettingsSheet(vm: AppController, onDismiss: () -> Unit) {
             HorizontalDivider()
             SettingRow(
                 "Back up library",
-                "Save all clips, captions and groups as one file. Pick Google Drive to keep it online.",
+                "Save all clips, links, captions and groups as one file. Pick Google Drive to keep it online.",
             ) { backupLauncher.launch("ReelAudio-backup-${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())}.zip") }
             HorizontalDivider()
             SettingRow("Restore from backup", "Bring a backup file into this phone. Clips you already have are kept.") {

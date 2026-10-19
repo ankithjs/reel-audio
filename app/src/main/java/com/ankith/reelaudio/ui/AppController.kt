@@ -2,6 +2,7 @@ package com.ankith.reelaudio.ui
 
 import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.GroupWithCount
+import com.ankith.reelaudio.data.SavedLink
 import com.ankith.reelaudio.playback.PlayerControls
 import com.ankith.reelaudio.playback.PlayerUi
 import com.ankith.reelaudio.transcribe.ModelState
@@ -16,6 +17,7 @@ interface AppController {
     val selectedGroup: MutableStateFlow<Long?>
     val query: MutableStateFlow<String>
     val message: MutableStateFlow<String?>
+    val links: StateFlow<List<SavedLink>>
     val playerState: StateFlow<PlayerUi>
     val player: PlayerControls
 
@@ -34,6 +36,13 @@ interface AppController {
     fun storageUsedMb(): Double
     fun isSignedIn(): Boolean
     fun signOut()
+    fun linksForClip(clipId: Long): Flow<List<SavedLink>>
+    fun linkGroupIds(linkId: Long): Flow<List<Long>>
+    fun setLinkInGroup(link: SavedLink, groupId: Long, member: Boolean)
+    fun refreshLink(link: SavedLink)
+    fun deleteLink(link: SavedLink)
+    fun clipTitle(clipId: Long?): String?
+
     val speechModel: StateFlow<ModelState>
     fun downloadSpeechModel()
     fun deleteSpeechModel()

@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.ankith.reelaudio.download.ReelDownloader
+import com.ankith.reelaudio.links.IdeaExtractor
+import com.ankith.reelaudio.links.LinkFetcher
 import com.ankith.reelaudio.transcribe.SpeechModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
@@ -62,24 +64,94 @@ class Library(private val context: Context) {
             (db.clips().get(clipId) ?: return).copy(transcriptStatus = TranscriptStatus.FAILED, error = t.message ?: "")
         }
         db.clips().update(updated)
+        if (updated.transcriptStatus == TranscriptStatus.DONE) extractIdeas(clipId)
     }
 
-    /** Saves every link found in [text]. Returns how many new links were queued. */
-    suspend fun addFromText(text: String, groupId: Long? = null): Int {
-        val urls = extractUrls(text)
-        var added = 0
-        for (url in urls) {
-            val existing = db.clips().byUrl(url)
-            val id = if (existing != null) {
-                if (existing.status == ClipStatus.FAILED) retry(existing.id)
-                existing.id
+    data class SaveResult(val reels: Int, val links: Int, val existing: Int)
+
+    /**
+     * Saves every link found in [text]: reels and videos go to the audio library, any other
+     * website goes to Links.
+     */
+    suspend fun addFromText(text: String, groupId: Long? = null): SaveResult {
+        var reels = 0
+        var links = 0
+        var existing = 0
+        for (url in extractUrls(text)) {
+            if (isMediaUrl(url)) {
+                val found = db.clips().byUrl(url)
+                val id = if (found != null) {
+                    if (found.status == ClipStatus.FAILED) retry(found.id)
+                    existing++
+                    found.id
+                } else {
+                    reels++
+                    db.clips().insert(Clip(sourceUrl = url)).also { startDownload(it, url) }
+                }
+                if (groupId != null && id > 0) db.clips().addToGroup(ClipGroup(id, groupId))
             } else {
-                added++
-                db.clips().insert(Clip(sourceUrl = url)).also { startDownload(it, url) }
+                val (id, isNew) = addLink(url, sourceClipId = null)
+                if (isNew) links++ else existing++
+                if (groupId != null && id > 0) db.links().addToGroup(LinkGroup(id, groupId))
             }
-            if (groupId != null && id > 0) db.clips().addToGroup(ClipGroup(id, groupId))
         }
-        return added
+        return SaveResult(reels, links, existing)
+    }
+
+    /** Saves a website and fetches its details in the background. Returns its id and whether it's new. */
+    suspend fun addLink(url: String, sourceClipId: Long?): Pair<Long, Boolean> {
+        db.links().byUrl(url)?.let { found ->
+            if (found.status == LinkStatus.FAILED) refreshLink(found.id)
+            return found.id to false
+        }
+        val id = db.links().insert(SavedLink(url = url, sourceClipId = sourceClipId))
+        if (id > 0) scope.launch { runFetchLink(id) }
+        return id to (id > 0)
+    }
+
+    fun refreshLink(linkId: Long) = scope.launch {
+        val link = db.links().get(linkId) ?: return@launch
+        db.links().update(link.copy(status = LinkStatus.FETCHING, error = ""))
+        runFetchLink(linkId)
+    }
+
+    private val linksDir get() = File(context.filesDir, "links").apply { mkdirs() }
+
+    private suspend fun runFetchLink(linkId: Long) {
+        val link = db.links().get(linkId) ?: return
+        val updated = try {
+            val page = LinkFetcher.fetch(link.url)
+            val image = File(linksDir, "link_$linkId.img")
+            val hasImage = page.imageUrl.isNotBlank() && LinkFetcher.downloadImage(page.imageUrl, image)
+            (db.links().get(linkId) ?: return).copy(
+                title = page.title, siteName = page.siteName, description = page.description,
+                content = page.content, imagePath = if (hasImage) image.absolutePath else "",
+                status = LinkStatus.READY, error = "",
+            )
+        } catch (t: Throwable) {
+            (db.links().get(linkId) ?: return).copy(
+                status = LinkStatus.FAILED,
+                error = "Couldn't open this page. ${t.message.orEmpty()}".trim(),
+            )
+        }
+        db.links().update(updated)
+    }
+
+    suspend fun deleteLink(link: SavedLink) = withContext(Dispatchers.IO) {
+        if (link.imagePath.isNotBlank()) File(link.imagePath).delete()
+        db.links().clearGroups(link.id)
+        db.links().delete(link.id)
+    }
+
+    suspend fun setLinkInGroup(linkId: Long, groupId: Long, member: Boolean) =
+        if (member) db.links().addToGroup(LinkGroup(linkId, groupId))
+        else db.links().removeFromGroup(linkId, groupId)
+
+    /** Saves websites mentioned in a reel's caption or spoken words into Links. */
+    private suspend fun extractIdeas(clipId: Long) {
+        val clip = db.clips().get(clipId) ?: return
+        val text = listOf(clip.caption, clip.transcript).joinToString("\n")
+        IdeaExtractor.findLinks(text, exclude = clip.sourceUrl).forEach { addLink(it, sourceClipId = clipId) }
     }
 
     fun retry(clipId: Long) = scope.launch {
@@ -101,6 +173,7 @@ class Library(private val context: Context) {
                     status = ClipStatus.READY, error = "",
                 )
             )
+            extractIdeas(clipId)
             if (speech.isReady) transcribe(clipId)
         } catch (t: Throwable) {
             val clip = db.clips().get(clipId) ?: return
@@ -142,6 +215,7 @@ class Library(private val context: Context) {
     suspend fun renameGroup(id: Long, name: String) = db.groups().rename(id, name.trim())
     suspend fun deleteGroup(id: Long) {
         db.groups().clearLinks(id)
+        db.groups().clearLinkMembers(id)
         db.groups().delete(id)
     }
 
@@ -160,10 +234,30 @@ class Library(private val context: Context) {
         fun extractUrls(text: String): List<String> =
             URL_REGEX.findAll(text).map { normalize(it.value) }.distinct().toList()
 
-        /** Drops tracking parameters so the same reel shared twice is saved once. */
+        /** Drops tracking parameters so the same reel or page shared twice is saved once. */
         fun normalize(url: String): String {
             val trimmed = url.trimEnd('.', ',', ')', '!')
-            return if ("instagram.com" in trimmed) trimmed.substringBefore('?').trimEnd('/') + "/" else trimmed
+            if ("instagram.com" in trimmed) return trimmed.substringBefore('?').trimEnd('/') + "/"
+            val query = trimmed.substringAfter('?', "")
+            if (query.isEmpty()) return trimmed
+            val kept = query.split('&').filterNot {
+                it.startsWith("utm_") || it.startsWith("igsh=") || it.startsWith("si=") || it.startsWith("fbclid=")
+            }
+            return trimmed.substringBefore('?') + if (kept.isEmpty()) "" else "?" + kept.joinToString("&")
+        }
+
+        /** Reels and videos are saved as audio; every other link is saved as a website. */
+        fun isMediaUrl(url: String): Boolean {
+            val host = IdeaExtractor.host(url) ?: return false
+            val path = url.substringAfter("://").substringAfter('/', "").lowercase()
+            fun on(domain: String) = host == domain || host.endsWith(".$domain")
+            return when {
+                on("instagram.com") -> listOf("reel", "p/", "tv/").any { path.startsWith(it) }
+                on("facebook.com") -> listOf("reel", "watch", "videos", "share/v", "share/r").any { it in path }
+                on("youtube.com") || on("youtu.be") || on("tiktok.com") || on("fb.watch") ||
+                    on("vimeo.com") || on("soundcloud.com") || on("dailymotion.com") -> true
+                else -> false
+            }
         }
     }
 }

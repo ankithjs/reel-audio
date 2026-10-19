@@ -8,6 +8,7 @@ import com.ankith.reelaudio.data.Backup
 import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.GroupWithCount
 import com.ankith.reelaudio.data.Library
+import com.ankith.reelaudio.data.SavedLink
 import com.ankith.reelaudio.library
 import com.ankith.reelaudio.playback.PlayerConnection
 import com.ankith.reelaudio.playback.PlayerUi
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -49,6 +51,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
     /** True while the app is on screen; the progress bar only ticks then, to save battery. */
     val visible = MutableStateFlow(false)
 
+    override val links: StateFlow<List<SavedLink>> = combine(
+        selectedGroup.flatMapLatest { g -> if (g == null) library.db.links().all() else library.db.links().inGroup(g) },
+        query,
+    ) { list, q ->
+        if (q.isBlank()) list
+        else list.filter { l -> listOf(l.title, l.siteName, l.description, l.url).any { it.contains(q, ignoreCase = true) } }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Every clip's title, so a link can say which reel it came from. */
+    private val clipTitles: StateFlow<Map<Long, String>> = library.db.clips().all()
+        .map { list -> list.associate { it.id to it.title } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    override fun clipTitle(clipId: Long?): String? = clipId?.let { clipTitles.value[it] }
+
+    override fun linksForClip(clipId: Long): Flow<List<SavedLink>> = library.db.links().forClip(clipId)
+    override fun linkGroupIds(linkId: Long): Flow<List<Long>> = library.db.links().groupIdsFor(linkId)
+
+    override fun setLinkInGroup(link: SavedLink, groupId: Long, member: Boolean) {
+        viewModelScope.launch { library.setLinkInGroup(link.id, groupId, member) }
+    }
+
+    override fun refreshLink(link: SavedLink) {
+        library.refreshLink(link.id)
+    }
+
+    override fun deleteLink(link: SavedLink) {
+        viewModelScope.launch { library.deleteLink(link) }
+    }
+
     init {
         viewModelScope.launch {
             runCatching { player.connect() }
@@ -69,12 +101,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
                 message.value = "No link found. Copy the reel link from Instagram and paste it here."
                 return@launch
             }
-            val added = library.addFromText(text, groupId)
-            message.value = when (added) {
-                0 -> "Already in your library."
-                1 -> "Saving audio…"
-                else -> "Saving $added reels…"
-            }
+            val r = library.addFromText(text, groupId)
+            val parts = listOfNotNull(
+                r.reels.takeIf { it > 0 }?.let { if (it == 1) "1 reel" else "$it reels" },
+                r.links.takeIf { it > 0 }?.let { if (it == 1) "1 link" else "$it links" },
+            )
+            message.value = if (parts.isEmpty()) "Already in your library." else "Saving ${parts.joinToString(" and ")}…"
         }
     }
 
@@ -190,7 +222,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
         viewModelScope.launch {
             message.value = "Restoring…"
             message.value = runCatching { backup.import(source) }
-                .fold({ if (it == 0) "Everything in that backup is already here." else "Restored $it clips." },
+                .fold({ if (it == 0) "Everything in that backup is already here." else "Restored $it clips and links." },
                     { "Restore failed: ${it.message}" })
         }
     }

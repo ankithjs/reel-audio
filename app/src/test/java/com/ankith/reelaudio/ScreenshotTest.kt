@@ -24,6 +24,9 @@ import com.ankith.reelaudio.data.TranscriptStatus
 import com.ankith.reelaudio.ui.AppController
 import com.ankith.reelaudio.ui.AppRoot
 import com.ankith.reelaudio.ui.ClipSheet
+import com.ankith.reelaudio.ui.LinkSheet
+import com.ankith.reelaudio.data.LinkStatus
+import com.ankith.reelaudio.data.SavedLink
 import com.ankith.reelaudio.ui.LocalInlineSheets
 import com.ankith.reelaudio.ui.NowPlayingSheet
 import com.ankith.reelaudio.ui.SettingsSheet
@@ -87,6 +90,12 @@ class ScreenshotTest {
         Sheet { ClipSheet(SAMPLE[1], GROUPS, FakeApp()) {} }
     }
 
+    @Test fun links() = shot("7_links") { AppRoot(FakeApp(), null, initialTab = 1) {} }
+
+    @Test fun linkDetails() = shot("8_link_details") {
+        Sheet { LinkSheet(LINKS[0], GROUPS, FakeApp()) {} }
+    }
+
     @Test fun settings() = shot("5_settings") {
         Sheet { SettingsSheet(FakeApp()) {} }
     }
@@ -97,6 +106,7 @@ private val GROUPS = listOf(
     GroupWithCount(2, "Poetry", 8),
     GroupWithCount(3, "Motivation", 15),
     GroupWithCount(4, "Stoicism", 5),
+    GroupWithCount(5, "AI tools", 9),
 )
 
 private val SAMPLE = listOf(
@@ -137,6 +147,25 @@ private val SAMPLE = listOf(
     Clip(
         id = 7, sourceUrl = "https://www.instagram.com/reel/g/", status = ClipStatus.READY,
         title = "Rumi: what you seek is seeking you", author = "spoken.verse", durationSec = 64, filePath = "x",
+    ),
+)
+
+private val LINKS = listOf(
+    SavedLink(
+        id = 1, url = "https://excalidraw.com/", title = "Excalidraw | Hand-drawn look & feel • Collaborative • Secure",
+        siteName = "Excalidraw", status = LinkStatus.READY, sourceClipId = 4,
+        description = "Excalidraw is a virtual collaborative whiteboard tool that lets you easily sketch diagrams that have a hand-drawn feel to them.",
+        content = "Excalidraw\nFree, open source whiteboard\nSketch diagrams with a hand-drawn feel.\nEnd-to-end encrypted collaboration.\nExport to PNG and SVG.",
+    ),
+    SavedLink(
+        id = 2, url = "https://www.perplexity.ai/", title = "Perplexity", siteName = "Perplexity AI", status = LinkStatus.READY,
+        description = "Perplexity is a free AI-powered answer engine that provides accurate, trusted, and real-time answers to any question.",
+    ),
+    SavedLink(id = 3, url = "https://roadmap.sh/frontend", status = LinkStatus.FETCHING),
+    SavedLink(
+        id = 4, url = "https://www.coursera.org/learn/learning-how-to-learn", title = "Learning How to Learn",
+        siteName = "Coursera", status = LinkStatus.READY,
+        description = "Powerful mental tools to help you master tough subjects. Barbara Oakley and Terrence Sejnowski.",
     ),
 )
 
@@ -184,6 +213,13 @@ private class FakeApp(
     override fun storageUsedMb() = 46.3
     override fun isSignedIn() = true
     override fun signOut() {}
+    override val links = MutableStateFlow(LINKS)
+    override fun linksForClip(clipId: Long): Flow<List<SavedLink>> = flowOf(LINKS.filter { it.sourceClipId == clipId })
+    override fun linkGroupIds(linkId: Long): Flow<List<Long>> = flowOf(listOf(5L))
+    override fun setLinkInGroup(link: SavedLink, groupId: Long, member: Boolean) {}
+    override fun refreshLink(link: SavedLink) {}
+    override fun deleteLink(link: SavedLink) {}
+    override fun clipTitle(clipId: Long?): String? = clipId?.let { id -> SAMPLE.firstOrNull { it.id == id }?.title }
     override val speechModel = MutableStateFlow<ModelState>(ModelState.Ready)
     override fun downloadSpeechModel() {}
     override fun deleteSpeechModel() {}
