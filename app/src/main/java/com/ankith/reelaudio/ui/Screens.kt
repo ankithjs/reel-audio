@@ -13,6 +13,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -79,6 +80,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -87,6 +89,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,8 +112,28 @@ import java.io.File
 
 private val Accent = Color(0xFF9E7BFF)
 
+/** Screenshot tests flip this to draw sheets inline, since popups aren't captured. */
+val LocalInlineSheets = staticCompositionLocalOf { false }
+
 @Composable
-fun AppRoot(vm: MainViewModel, pendingShare: String?, onShareHandled: () -> Unit) {
+private fun AppSheet(
+    onDismiss: () -> Unit,
+    state: SheetState? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (LocalInlineSheets.current) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), tonalElevation = 1.dp) {
+            Column(Modifier.padding(top = 24.dp), content = content)
+        }
+    } else if (state != null) {
+        ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, content = content)
+    } else {
+        ModalBottomSheet(onDismissRequest = onDismiss, content = content)
+    }
+}
+
+@Composable
+fun AppRoot(vm: AppController, pendingShare: String?, onShareHandled: () -> Unit) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Accent, secondary = Accent)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             LibraryScreen(vm, pendingShare, onShareHandled)
@@ -119,12 +142,12 @@ fun AppRoot(vm: MainViewModel, pendingShare: String?, onShareHandled: () -> Unit
 }
 
 @Composable
-private fun LibraryScreen(vm: MainViewModel, pendingShare: String?, onShareHandled: () -> Unit) {
+internal fun LibraryScreen(vm: AppController, pendingShare: String?, onShareHandled: () -> Unit) {
     val clips by vm.clips.collectAsState()
     val groups by vm.groups.collectAsState()
     val selected by vm.selectedGroup.collectAsState()
     val query by vm.query.collectAsState()
-    val player by vm.player.state.collectAsState()
+    val player by vm.playerState.collectAsState()
     val message by vm.message.collectAsState()
     val snackbar = remember { SnackbarHostState() }
 
@@ -255,7 +278,7 @@ private fun LibraryScreen(vm: MainViewModel, pendingShare: String?, onShareHandl
 }
 
 @Composable
-private fun GroupChips(
+internal fun GroupChips(
     groups: List<GroupWithCount>,
     selected: Long?,
     onSelect: (Long?) -> Unit,
@@ -296,7 +319,7 @@ private fun GroupChips(
 }
 
 @Composable
-private fun EmptyState(filtered: Boolean) {
+internal fun EmptyState(filtered: Boolean) {
     Column(
         Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -335,7 +358,7 @@ private fun Thumb(path: String, size: Int) {
 }
 
 @Composable
-private fun ClipRow(clip: Clip, playing: Boolean, onClick: () -> Unit, onMore: () -> Unit) {
+internal fun ClipRow(clip: Clip, playing: Boolean, onClick: () -> Unit, onMore: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -374,7 +397,7 @@ private fun ClipRow(clip: Clip, playing: Boolean, onClick: () -> Unit, onMore: (
 }
 
 @Composable
-private fun MiniPlayer(p: PlayerUi, vm: MainViewModel, onOpen: () -> Unit) {
+internal fun MiniPlayer(p: PlayerUi, vm: AppController, onOpen: () -> Unit) {
     Surface(tonalElevation = 6.dp) {
         Column {
             if (p.durationMs > 0) LinearProgressIndicator(
@@ -404,13 +427,13 @@ private fun MiniPlayer(p: PlayerUi, vm: MainViewModel, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: MainViewModel, onDismiss: () -> Unit) {
+internal fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: AppController, onDismiss: () -> Unit) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val cues = remember(clip?.subtitles) { parseVtt(clip?.subtitles.orEmpty()) }
     var dragging by remember { mutableStateOf(false) }
     var dragPos by remember { mutableFloatStateOf(0f) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+    AppSheet(onDismiss, state) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -496,14 +519,14 @@ private fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: MainViewModel, onDismi
 }
 
 @Composable
-private fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: MainViewModel, onDismiss: () -> Unit) {
+internal fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: AppController, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val memberOf by vm.groupIdsFor(clip.id).collectAsState(initial = emptyList())
     var renaming by remember { mutableStateOf(false) }
     var newGroup by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AppSheet(onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Thumb(clip.thumbPath, 56)
@@ -604,7 +627,7 @@ private fun SheetAction(icon: androidx.compose.ui.graphics.vector.ImageVector, l
 }
 
 @Composable
-private fun AddLinkDialog(
+internal fun AddLinkDialog(
     initial: String,
     groups: List<GroupWithCount>,
     preselected: Long?,
@@ -702,7 +725,7 @@ private fun GroupEditDialog(
 }
 
 @Composable
-private fun SettingsSheet(vm: MainViewModel, onDismiss: () -> Unit) {
+internal fun SettingsSheet(vm: AppController, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var signedIn by remember { mutableStateOf(vm.isSignedIn()) }
     val storage = remember { vm.storageUsedMb() }
@@ -715,7 +738,7 @@ private fun SettingsSheet(vm: MainViewModel, onDismiss: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AppSheet(onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Text("Settings", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))

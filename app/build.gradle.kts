@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+    id("io.github.takahirom.roborazzi")
 }
 
 android {
@@ -56,6 +57,10 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     packaging {
         // youtubedl-android ships Python as native libs that must be extracted to disk.
         jniLibs { useLegacyPackaging = true }
@@ -85,4 +90,13 @@ dependencies {
 
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Screenshot tests: render the real screens on the JVM to PNGs.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.40.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.40.1")
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

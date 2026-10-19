@@ -29,8 +29,19 @@ data class PlayerUi(
     val speed: Float = 1f,
 )
 
+interface PlayerControls {
+    fun togglePlay()
+    fun next()
+    fun previous()
+    fun seekTo(ms: Long)
+    fun seekBy(ms: Long)
+    fun toggleShuffle()
+    fun cycleRepeat()
+    fun cycleSpeed()
+}
+
 /** Thin wrapper around a MediaController bound to [PlaybackService]. */
-class PlayerConnection(private val context: Context) {
+class PlayerConnection(private val context: Context) : PlayerControls {
     private var controller: MediaController? = null
     private val _state = MutableStateFlow(PlayerUi())
     val state: StateFlow<PlayerUi> = _state
@@ -80,23 +91,29 @@ class PlayerConnection(private val context: Context) {
         c.play()
     }
 
-    fun togglePlay() = controller?.run { if (isPlaying) pause() else play() }
-    fun next() = controller?.seekToNextMediaItem()
-    fun previous() = controller?.seekToPrevious()
-    fun seekTo(ms: Long) = controller?.seekTo(ms)
-    fun seekBy(ms: Long) = controller?.run { seekTo((currentPosition + ms).coerceAtLeast(0)) }
-    fun toggleShuffle() = controller?.run { shuffleModeEnabled = !shuffleModeEnabled }
-    fun cycleRepeat() = controller?.run {
-        repeatMode = when (repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
+    override fun togglePlay() {
+        controller?.run { if (isPlaying) pause() else play() }
+    }
+    override fun next() { controller?.seekToNextMediaItem() }
+    override fun previous() { controller?.seekToPrevious() }
+    override fun seekTo(ms: Long) { controller?.seekTo(ms) }
+    override fun seekBy(ms: Long) { controller?.run { seekTo((currentPosition + ms).coerceAtLeast(0)) } }
+    override fun toggleShuffle() { controller?.run { shuffleModeEnabled = !shuffleModeEnabled } }
+    override fun cycleRepeat() {
+        controller?.run {
+            repeatMode = when (repeatMode) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+            }
         }
     }
-    fun cycleSpeed() = controller?.run {
-        val speeds = listOf(1f, 1.25f, 1.5f, 2f, 0.75f)
-        val i = speeds.indexOfFirst { it == playbackParameters.speed }
-        setPlaybackSpeed(speeds[(i + 1) % speeds.size])
+    override fun cycleSpeed() {
+        controller?.run {
+            val speeds = listOf(1f, 1.25f, 1.5f, 2f, 0.75f)
+            val i = speeds.indexOfFirst { it == playbackParameters.speed }
+            setPlaybackSpeed(speeds[(i + 1) % speeds.size])
+        }
     }
 
     private fun Clip.toMediaItem(): MediaItem {
