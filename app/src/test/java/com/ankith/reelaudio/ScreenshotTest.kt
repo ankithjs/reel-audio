@@ -174,4 +174,6 @@ private class FakeApp(
     override fun storageUsedMb() = 46.3
     override fun isSignedIn() = true
     override fun signOut() {}
+    override fun exportBackup(target: android.net.Uri) {}
+    override fun importBackup(source: android.net.Uri) {}
 }

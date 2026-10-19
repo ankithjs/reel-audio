@@ -33,4 +33,6 @@ interface AppController {
     fun storageUsedMb(): Double
     fun isSignedIn(): Boolean
     fun signOut()
+    fun exportBackup(target: android.net.Uri)
+    fun importBackup(source: android.net.Uri)
 }

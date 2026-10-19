@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -729,6 +731,12 @@ internal fun SettingsSheet(vm: AppController, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var signedIn by remember { mutableStateOf(vm.isSignedIn()) }
     val storage = remember { vm.storageUsedMb() }
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        uri?.let { vm.exportBackup(it) }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { vm.importBackup(it) }
+    }
 
     LaunchedEffect(Unit) {
         // Refresh after returning from the sign-in screen.
@@ -753,6 +761,15 @@ internal fun SettingsSheet(vm: AppController, onDismiss: () -> Unit) {
             }
             HorizontalDivider()
             SettingRow("Update extractor", "Run this if saving suddenly stops working.") { vm.updateExtractor() }
+            HorizontalDivider()
+            SettingRow(
+                "Back up library",
+                "Save all clips, captions and groups as one file. Pick Google Drive to keep it online.",
+            ) { backupLauncher.launch("ReelAudio-backup-${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())}.zip") }
+            HorizontalDivider()
+            SettingRow("Restore from backup", "Bring a backup file into this phone. Clips you already have are kept.") {
+                restoreLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed"))
+            }
             HorizontalDivider()
             SettingRow("Storage used", "%.1f MB for all saved clips".format(storage)) {}
             HorizontalDivider()

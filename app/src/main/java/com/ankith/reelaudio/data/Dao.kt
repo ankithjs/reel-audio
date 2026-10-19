@@ -18,6 +18,12 @@ interface ClipDao {
     )
     fun inGroup(groupId: Long): Flow<List<Clip>>
 
+    @Query("SELECT * FROM clips")
+    suspend fun allOnce(): List<Clip>
+
+    @Query("SELECT * FROM clip_groups")
+    suspend fun allLinks(): List<ClipGroup>
+
     @Query("SELECT * FROM clips WHERE id = :id")
     suspend fun get(id: Long): Clip?
 
@@ -53,6 +59,12 @@ interface GroupDao {
             "LEFT JOIN clip_groups cg ON cg.groupId = g.id GROUP BY g.id ORDER BY g.name COLLATE NOCASE"
     )
     fun allWithCounts(): Flow<List<GroupWithCount>>
+
+    @Query("SELECT * FROM user_groups")
+    suspend fun allOnce(): List<Group>
+
+    @Query("SELECT * FROM user_groups WHERE name = :name")
+    suspend fun byName(name: String): Group?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(group: Group): Long

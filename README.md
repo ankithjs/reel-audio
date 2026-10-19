@@ -30,6 +30,13 @@ Instagram**, log in once, then tap a failed clip to retry. The login stays on yo
 only used to fetch reels you share. **Settings → Update extractor** pulls the latest fix when
 Instagram changes something.
 
+## Backup and moving to a new phone
+
+**Settings → Back up library** saves everything (audio, covers, captions, authors and groups) as one
+`.zip` file. When Android asks where to save it, pick **Google Drive** to keep it online. On the new
+phone, install the app and use **Settings → Restore from backup** to pick that file. Restoring adds
+to what's already there and skips clips you already have. Your Instagram sign-in is never included.
+
 ## Storage
 
 Audio is stored on the phone so it plays offline. A typical reel is about 0.5–1 MB, so 1,000

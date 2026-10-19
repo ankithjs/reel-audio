@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ankith.reelaudio.data.Backup
 import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.GroupWithCount
 import com.ankith.reelaudio.data.Library
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
     private val library = app.library
+    private val backup = Backup(app, library)
     override val player = PlayerConnection(app)
     override val playerState: StateFlow<PlayerUi> get() = player.state
 
@@ -142,6 +144,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
         library.downloader.cookiesFile.delete()
         android.webkit.CookieManager.getInstance().removeAllCookies(null)
         message.value = "Signed out of Instagram."
+    }
+
+    override fun exportBackup(target: Uri) {
+        viewModelScope.launch {
+            message.value = "Backing up…"
+            message.value = runCatching { backup.export(target) }
+                .fold({ "Backed up $it clips." }, { "Backup failed: ${it.message}" })
+        }
+    }
+
+    override fun importBackup(source: Uri) {
+        viewModelScope.launch {
+            message.value = "Restoring…"
+            message.value = runCatching { backup.import(source) }
+                .fold({ if (it == 0) "Everything in that backup is already here." else "Restored $it clips." },
+                    { "Restore failed: ${it.message}" })
+        }
     }
 
     override fun onCleared() {
