@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -42,12 +43,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
         else list.filter { c -> listOf(c.title, c.author, c.caption).any { it.contains(q, ignoreCase = true) } }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** True while the app is on screen; the progress bar only ticks then, to save battery. */
+    val visible = MutableStateFlow(false)
+
     init {
         viewModelScope.launch {
             runCatching { player.connect() }
-            while (true) {
-                player.refresh()
-                delay(500)
+            visible.collectLatest { onScreen ->
+                while (onScreen) {
+                    player.refresh()
+                    delay(500)
+                }
             }
         }
     }
