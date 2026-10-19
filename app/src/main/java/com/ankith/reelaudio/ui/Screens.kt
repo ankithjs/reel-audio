@@ -4,6 +4,7 @@ package com.ankith.reelaudio.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -30,10 +31,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -91,6 +94,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -484,9 +488,7 @@ private fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: MainViewModel, onDismi
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(12.dp))
-                Text("Caption", style = MaterialTheme.typography.labelLarge, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(4.dp))
-                Text(clip!!.caption, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth())
+                CaptionBlock(clip!!.caption)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -545,8 +547,7 @@ private fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: MainViewMode
             if (clip.caption.isNotBlank()) {
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
-                Text("Caption", style = MaterialTheme.typography.labelLarge)
-                Text(clip.caption, style = MaterialTheme.typography.bodySmall)
+                CaptionBlock(clip.caption)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -565,6 +566,29 @@ private fun ClipSheet(clip: Clip, groups: List<GroupWithCount>, vm: MainViewMode
         confirmButton = { TextButton(onClick = { vm.delete(clip); confirmDelete = false; onDismiss() }) { Text("Delete") } },
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
     )
+}
+
+/** The reel's caption: tap Copy for the whole text, or long-press to select part of it. */
+@Composable
+private fun CaptionBlock(caption: String) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Caption", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            TextButton(onClick = {
+                clipboard.setText(AnnotatedString(caption))
+                Toast.makeText(context, "Caption copied", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Copy")
+            }
+        }
+        SelectionContainer {
+            Text(caption, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth())
+        }
+    }
 }
 
 @Composable

@@ -18,7 +18,7 @@ browser the first time. New versions install over the old one and keep your libr
   on a clip to put it in one or more groups. Hold a group to rename or delete it.
 - **Listening:** tap a clip to play the current list. Playback continues with the screen off and
   shows controls on the lock screen. Shuffle, repeat, ±10 s and playback speed are in the player.
-- **Captions:** the reel's caption and author are saved with each clip. Timed subtitles are saved
+- **Captions:** the text the creator wrote under the reel is saved with each clip, along with the author. Tap **Copy** in the player or the ⋮ menu to copy it, or long-press to select part of it. Timed subtitles are saved
   too whenever the source provides them.
 - **Shared files:** you can also share a video or audio file (for example a screen recording) to
   Reel Audio to add it.
