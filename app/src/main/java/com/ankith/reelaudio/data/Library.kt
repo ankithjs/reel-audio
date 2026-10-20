@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.ankith.reelaudio.download.ReelDownloader
 import com.ankith.reelaudio.links.IdeaExtractor
+import com.ankith.reelaudio.links.KnownSkills
 import com.ankith.reelaudio.links.LinkFetcher
 import com.ankith.reelaudio.transcribe.SpeechModel
 import kotlinx.coroutines.channels.Channel
@@ -136,7 +137,9 @@ class Library(private val context: Context) {
             val image = File(linksDir, "link_$linkId.img")
             val hasImage = page.imageUrl.isNotBlank() && LinkFetcher.downloadImage(page.imageUrl, image)
             (db.links().get(linkId) ?: return).copy(
-                title = page.title, siteName = page.siteName, description = page.description,
+                title = page.title,
+                siteName = if (KnownSkills.isSkill(link.url)) "Skill" else page.siteName,
+                description = page.description,
                 content = page.content, imagePath = if (hasImage) image.absolutePath else "",
                 status = LinkStatus.READY, error = "",
             )
@@ -244,7 +247,7 @@ class Library(private val context: Context) {
         private val URL_REGEX = Regex("""https?://[^\s"'<>]+""")
 
         /** Bump when link finding gets better, to scan saved reels again. */
-        private const val LINK_SCAN_VERSION = 1
+        private const val LINK_SCAN_VERSION = 2
 
         fun extractUrls(text: String): List<String> {
             val urls = URL_REGEX.findAll(text).map { normalize(it.value) }.distinct().toList()

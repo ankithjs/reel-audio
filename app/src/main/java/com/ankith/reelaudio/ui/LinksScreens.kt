@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -94,7 +95,7 @@ private fun LinkRow(link: SavedLink, fromClip: String?, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Thumb(link.imagePath, 52, Icons.Default.Link)
+        Thumb(link.imagePath, 52, link.icon)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -128,6 +129,9 @@ private fun LinkRow(link: SavedLink, fromClip: String?, onClick: () -> Unit) {
         }
     }
 }
+
+/** Skills get a cap icon so they stand apart from websites in the list. */
+private val SavedLink.icon get() = if (siteName == "Skill") Icons.Default.School else Icons.Default.Link
 
 /** Everything saved about a link, as plain text to copy or share. */
 internal fun SavedLink.asText(): String = buildString {
@@ -174,7 +178,7 @@ internal fun LinkSheet(link: SavedLink, groups: List<GroupWithCount>, vm: AppCon
     AppSheet(onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Thumb(link.imagePath, 56, Icons.Default.Link)
+                Thumb(link.imagePath, 56, link.icon)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(link.title.ifBlank { link.url }, style = MaterialTheme.typography.titleMedium, maxLines = 3)

@@ -47,6 +47,10 @@ object LinkFetcher {
         val image = metaUrl("og:image", "og:image:url", "twitter:image")
 
         doc.select("script, style, noscript, nav, footer, header, aside, form, svg, iframe, button").remove()
+        if (host.endsWith("wikipedia.org")) {
+            // Keep the article text, not citations, edit links and info tables.
+            doc.select("sup, table, .mw-editsection, .hatnote, .reflist, .references, .navbox, #toc, .toc, .mw-empty-elt").remove()
+        }
         val root = doc.selectFirst("article") ?: doc.selectFirst("main") ?: doc.body()
         val lines = root?.select("h1, h2, h3, h4, p, li, pre, blockquote")
             ?.map { el ->
@@ -57,8 +61,15 @@ object LinkFetcher {
             ?.distinct()
             .orEmpty()
         val content = lines.joinToString("\n").trim().take(MAX_CONTENT)
+        // Pages without a summary (like Wikipedia) get their first real paragraph instead.
+        val summary = description.ifBlank {
+            lines.firstOrNull { it.length >= 80 && !it.startsWith("\n") }?.let {
+                if (it.length > 400) it.take(400).substringBeforeLast(' ') + "…" else it
+            }.orEmpty()
+        }
+        val cleanTitle = if (host.endsWith("wikipedia.org")) title.removeSuffix(" - Wikipedia") else title
 
-        return Page(pageUrl, title, siteName, description, content, image)
+        return Page(pageUrl, cleanTitle, siteName, summary, content, image)
     }
 
     /** Saves the preview image; skips anything that isn't a reasonably sized image. */

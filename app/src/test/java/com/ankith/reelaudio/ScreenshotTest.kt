@@ -161,6 +161,11 @@ private val LINKS = listOf(
         id = 2, url = "https://www.perplexity.ai/", title = "Perplexity", siteName = "Perplexity AI", status = LinkStatus.READY,
         description = "Perplexity is a free AI-powered answer engine that provides accurate, trusted, and real-time answers to any question.",
     ),
+    SavedLink(
+        id = 5, url = "https://en.wikipedia.org/wiki/Public_speaking", title = "Public speaking",
+        siteName = "Skill", status = LinkStatus.READY, sourceClipId = 2,
+        description = "Public speaking is the practice of delivering speeches to a live audience, to inform, persuade or entertain.",
+    ),
     SavedLink(id = 3, url = "https://roadmap.sh/frontend", status = LinkStatus.FETCHING),
     SavedLink(
         id = 4, url = "https://www.coursera.org/learn/learning-how-to-learn", title = "Learning How to Learn",

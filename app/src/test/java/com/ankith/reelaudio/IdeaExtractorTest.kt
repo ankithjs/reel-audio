@@ -40,6 +40,17 @@ class IdeaExtractorTest {
         )
     }
 
+    @Test fun findsSkillsTheReelTalksAbout() {
+        val text = "Learn Public Speaking and start journaling. Writing every day helps."
+        assertEquals(
+            listOf(
+                "https://en.wikipedia.org/wiki/Public_speaking",
+                "https://en.wikipedia.org/wiki/Journaling",
+            ),
+            IdeaExtractor.findLinks(text),
+        )
+    }
+
     @Test fun skipsTheReelItselfAndPlainWords() {
         assertEquals(
             emptyList<String>(),

@@ -98,7 +98,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app), AppController {
     override fun addLinks(text: String, groupId: Long?) {
         viewModelScope.launch {
             if (Library.extractUrls(text).isEmpty()) {
-                message.value = "No link found. Paste a reel link, a website like excalidraw.com, or a tool's name."
+                message.value = "No link found. Paste a reel link, a website like excalidraw.com, or the name of a tool or skill."
                 return@launch
             }
             val r = library.addFromText(text, groupId)
