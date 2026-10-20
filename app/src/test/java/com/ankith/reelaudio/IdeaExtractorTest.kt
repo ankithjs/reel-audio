@@ -1,5 +1,6 @@
 package com.ankith.reelaudio
 
+import com.ankith.reelaudio.links.ClaudeSkills
 import com.ankith.reelaudio.links.IdeaExtractor
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -40,15 +41,29 @@ class IdeaExtractorTest {
         )
     }
 
-    @Test fun findsSkillsTheReelTalksAbout() {
-        val text = "Learn Public Speaking and start journaling. Writing every day helps."
+    @Test fun findsClaudeSkills() {
+        val text = """
+            5 Claude skills you need. First, the frontend design skill makes your sites look great.
+            Then a skill called Superpowers for planning. Run /skill-creator to make your own.
+            The Changelog Writer skill drafts release notes. It's a useful skill.
+        """.trimIndent()
         assertEquals(
             listOf(
-                "https://en.wikipedia.org/wiki/Public_speaking",
-                "https://en.wikipedia.org/wiki/Journaling",
+                "frontend-design" to true,
+                "superpowers" to true,
+                "skill-creator" to true,
+                "changelog-writer" to false,
             ),
-            IdeaExtractor.findLinks(text),
+            ClaudeSkills.find(text).map { it.name to it.readPage },
         )
+        assertEquals(
+            "Then a skill called Superpowers for planning.",
+            ClaudeSkills.find(text)[1].fromReel,
+        )
+    }
+
+    @Test fun ignoresSkillTalkThatIsNotAboutClaude() {
+        assertEquals(emptyList<ClaudeSkills.Found>(), ClaudeSkills.find("Public speaking is the Best Life skill."))
     }
 
     @Test fun skipsTheReelItselfAndPlainWords() {

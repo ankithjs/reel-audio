@@ -768,8 +768,8 @@ internal fun AddLinkDialog(
             Column {
                 if (forLinks) {
                     Text(
-                        "Paste a website link, or type a tool or skill. Saving a reel works too: " +
-                            "any websites, tools or skills it mentions are added here on their own.",
+                        "Paste a website link or type a tool's name. Saving a reel works too: any websites, " +
+                            "tools or Claude skills it mentions are added here on their own.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -777,7 +777,7 @@ internal fun AddLinkDialog(
                 }
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
-                    label = { Text(if (forLinks) "e.g. excalidraw.com, Notion or public speaking" else "Reel or website links, one per line") },
+                    label = { Text(if (forLinks) "e.g. excalidraw.com or Notion" else "Reel or website links, one per line") },
                     minLines = 2, maxLines = 6, modifier = Modifier.fillMaxWidth(),
                 )
                 TextButton(onClick = {

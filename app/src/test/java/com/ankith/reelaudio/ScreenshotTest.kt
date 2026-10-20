@@ -162,9 +162,9 @@ private val LINKS = listOf(
         description = "Perplexity is a free AI-powered answer engine that provides accurate, trusted, and real-time answers to any question.",
     ),
     SavedLink(
-        id = 5, url = "https://en.wikipedia.org/wiki/Public_speaking", title = "Public speaking",
-        siteName = "Skill", status = LinkStatus.READY, sourceClipId = 2,
-        description = "Public speaking is the practice of delivering speeches to a live audience, to inform, persuade or entertain.",
+        id = 5, url = "https://github.com/anthropics/skills/tree/main/skills/frontend-design", title = "frontend-design",
+        siteName = "Claude skill", status = LinkStatus.READY, sourceClipId = 2,
+        description = "Create distinctive, production-grade frontend interfaces with high design quality.",
     ),
     SavedLink(id = 3, url = "https://roadmap.sh/frontend", status = LinkStatus.FETCHING),
     SavedLink(

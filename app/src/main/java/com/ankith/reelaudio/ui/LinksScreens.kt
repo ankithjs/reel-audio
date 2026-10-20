@@ -32,7 +32,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ankith.reelaudio.data.Library
 import com.ankith.reelaudio.data.Clip
 import com.ankith.reelaudio.data.GroupWithCount
 import com.ankith.reelaudio.data.LinkStatus
@@ -130,8 +131,8 @@ private fun LinkRow(link: SavedLink, fromClip: String?, onClick: () -> Unit) {
     }
 }
 
-/** Skills get a cap icon so they stand apart from websites in the list. */
-private val SavedLink.icon get() = if (siteName == "Skill") Icons.Default.School else Icons.Default.Link
+/** Claude skills get a puzzle-piece icon so they stand apart from websites in the list. */
+private val SavedLink.icon get() = if (siteName == Library.CLAUDE_SKILL) Icons.Default.Extension else Icons.Default.Link
 
 /** Everything saved about a link, as plain text to copy or share. */
 internal fun SavedLink.asText(): String = buildString {

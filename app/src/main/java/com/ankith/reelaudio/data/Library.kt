@@ -5,7 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.ankith.reelaudio.download.ReelDownloader
 import com.ankith.reelaudio.links.IdeaExtractor
-import com.ankith.reelaudio.links.KnownSkills
+import com.ankith.reelaudio.links.ClaudeSkills
 import com.ankith.reelaudio.links.LinkFetcher
 import com.ankith.reelaudio.transcribe.SpeechModel
 import kotlinx.coroutines.channels.Channel
@@ -132,13 +132,15 @@ class Library(private val context: Context) {
 
     private suspend fun runFetchLink(linkId: Long) {
         val link = db.links().get(linkId) ?: return
+        if (ClaudeSkills.isSearch(link.url)) return
+        val skill = ClaudeSkills.nameFor(link.url)
         val updated = try {
             val page = LinkFetcher.fetch(link.url)
             val image = File(linksDir, "link_$linkId.img")
             val hasImage = page.imageUrl.isNotBlank() && LinkFetcher.downloadImage(page.imageUrl, image)
             (db.links().get(linkId) ?: return).copy(
-                title = page.title,
-                siteName = if (KnownSkills.isSkill(link.url)) "Skill" else page.siteName,
+                title = skill ?: page.title,
+                siteName = if (skill != null) CLAUDE_SKILL else page.siteName,
                 description = page.description,
                 content = page.content, imagePath = if (hasImage) image.absolutePath else "",
                 status = LinkStatus.READY, error = "",
@@ -167,6 +169,20 @@ class Library(private val context: Context) {
         val clip = db.clips().get(clipId) ?: return
         val text = listOf(clip.caption, clip.transcript).joinToString("\n")
         IdeaExtractor.findLinks(text, exclude = clip.sourceUrl).forEach { addLink(it, sourceClipId = clipId) }
+        for (skill in ClaudeSkills.find(text)) {
+            if (skill.readPage) {
+                addLink(skill.url, sourceClipId = clipId)
+            } else if (db.links().byUrl(skill.url) == null) {
+                // No page to read: keep what the reel says about it.
+                db.links().insert(
+                    SavedLink(
+                        url = skill.url, title = skill.name, siteName = CLAUDE_SKILL,
+                        description = skill.fromReel, content = skill.fromReel,
+                        sourceClipId = clipId, status = LinkStatus.READY,
+                    )
+                )
+            }
+        }
     }
 
     fun retry(clipId: Long) = scope.launch {
@@ -247,7 +263,10 @@ class Library(private val context: Context) {
         private val URL_REGEX = Regex("""https?://[^\s"'<>]+""")
 
         /** Bump when link finding gets better, to scan saved reels again. */
-        private const val LINK_SCAN_VERSION = 2
+        private const val LINK_SCAN_VERSION = 3
+
+        /** Site name shown for Claude skills in Links. */
+        const val CLAUDE_SKILL = "Claude skill"
 
         fun extractUrls(text: String): List<String> {
             val urls = URL_REGEX.findAll(text).map { normalize(it.value) }.distinct().toList()
