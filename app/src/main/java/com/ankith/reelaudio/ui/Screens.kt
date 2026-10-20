@@ -267,6 +267,7 @@ internal fun LibraryScreen(
             initial = pendingShare.orEmpty(),
             groups = groups,
             preselected = selected,
+            forLinks = tab == 1 && pendingShare == null,
             onDismiss = { showAdd = false; onShareHandled() },
             onSave = { text, groupId ->
                 vm.addLinks(text, groupId)
@@ -749,6 +750,7 @@ internal fun AddLinkDialog(
     initial: String,
     groups: List<GroupWithCount>,
     preselected: Long?,
+    forLinks: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (String, Long?) -> Unit,
     onNewGroup: (String) -> Unit,
@@ -761,12 +763,21 @@ internal fun AddLinkDialog(
     BackHandler(onBack = onDismiss)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save a reel or link") },
+        title = { Text(if (forLinks) "Save a website or tool" else "Save a reel or link") },
         text = {
             Column {
+                if (forLinks) {
+                    Text(
+                        "Paste a website link or type a tool's name. Saving a reel works too: " +
+                            "any websites or tools it mentions are added here on their own.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
-                    label = { Text("Reel or website links, one per line") },
+                    label = { Text(if (forLinks) "e.g. excalidraw.com or Notion" else "Reel or website links, one per line") },
                     minLines = 2, maxLines = 6, modifier = Modifier.fillMaxWidth(),
                 )
                 TextButton(onClick = {

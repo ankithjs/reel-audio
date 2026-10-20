@@ -27,11 +27,23 @@ class Library(private val context: Context) {
         // One clip at a time, so the phone stays responsive.
         scope.launch { for (id in transcribeQueue) runTranscribe(id) }
         // Pick up anything that was waiting when the app last closed.
+        scope.launch { scanSavedReelsForLinks() }
         scope.launch {
             if (speech.isReady) {
                 db.clips().idsWithTranscript(listOf("QUEUED", "WORKING")).forEach { transcribeQueue.trySend(it) }
             }
         }
+    }
+
+    /**
+     * Looks for websites and tools in reels saved before link finding existed or improved.
+     * Runs once per [LINK_SCAN_VERSION], so a link the user deleted doesn't come back each launch.
+     */
+    private suspend fun scanSavedReelsForLinks() {
+        val prefs = context.getSharedPreferences("library", Context.MODE_PRIVATE)
+        if (prefs.getInt("link_scan", 0) >= LINK_SCAN_VERSION) return
+        db.clips().allOnce().filter { it.status == ClipStatus.READY }.forEach { extractIdeas(it.id) }
+        prefs.edit().putInt("link_scan", LINK_SCAN_VERSION).apply()
     }
 
     /** Queues speech-to-text for one clip. */
@@ -231,8 +243,14 @@ class Library(private val context: Context) {
     companion object {
         private val URL_REGEX = Regex("""https?://[^\s"'<>]+""")
 
-        fun extractUrls(text: String): List<String> =
-            URL_REGEX.findAll(text).map { normalize(it.value) }.distinct().toList()
+        /** Bump when link finding gets better, to scan saved reels again. */
+        private const val LINK_SCAN_VERSION = 1
+
+        fun extractUrls(text: String): List<String> {
+            val urls = URL_REGEX.findAll(text).map { normalize(it.value) }.distinct().toList()
+            // Typed without https:// ("excalidraw.com") or just a tool's name ("Notion").
+            return urls.ifEmpty { IdeaExtractor.findLinks(text) }
+        }
 
         /** Drops tracking parameters so the same reel or page shared twice is saved once. */
         fun normalize(url: String): String {
