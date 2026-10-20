@@ -25,7 +25,18 @@ object ClaudeSkills {
     /** Well-known community skill collections and where they live. */
     private val COMMUNITY = mapOf(
         "superpowers" to "https://github.com/obra/superpowers",
+        "taste-skill" to "https://github.com/Leonxlnx/taste-skill",
     )
+
+    /** Install commands shown in captions or pasted in: "npx skills add owner/repo". */
+    private val INSTALL = Regex("""\bnpx\s+(?:-y\s+)?skills(?:@[\w.]+)?\s+add\s+(?:https://github\.com/)?([\w.-]+)/([\w.-]+)""")
+
+    /** Skills named by an install command, linked to their GitHub repo. Works without any mention of Claude. */
+    fun fromInstallCommands(text: String): List<Found> =
+        INSTALL.findAll(text).map { m ->
+            val repo = m.groupValues[2].removeSuffix(".git")
+            Found(repo.lowercase(), "https://github.com/${m.groupValues[1]}/$repo", m.value, readPage = true)
+        }.distinctBy { it.url.lowercase() }.toList()
 
     /** Only look for skill names in reels that are about Claude or agent skills. */
     private val TOPIC = Regex("""\bclaude\b|skill\.md|agent skills?\b|skills? for claude""", RegexOption.IGNORE_CASE)
@@ -64,9 +75,10 @@ object ClaudeSkills {
     fun isSearch(url: String): Boolean = url.startsWith(SEARCH)
 
     fun find(text: String): List<Found> {
-        if (!TOPIC.containsMatchIn(text)) return emptyList()
-        val official = OFFICIAL.associateBy { it }
         val found = linkedMapOf<String, Found>()
+        fromInstallCommands(text).forEach { found[it.name] = it }
+        if (!TOPIC.containsMatchIn(text)) return found.values.toList()
+        val official = OFFICIAL.associateBy { it }
         val hits = (PATTERNS + SPOKEN).flatMap { p -> p.findAll(text).map { it.range.first to it.groupValues[1] }.toList() }
             .sortedBy { it.first }
         for ((at, raw) in hits) {

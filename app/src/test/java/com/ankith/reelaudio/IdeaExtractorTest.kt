@@ -62,6 +62,13 @@ class IdeaExtractorTest {
         )
     }
 
+    @Test fun readsSkillInstallCommands() {
+        assertEquals(
+            listOf("taste-skill" to "https://github.com/Leonxlnx/taste-skill"),
+            ClaudeSkills.find("npx skills add Leonxlnx/taste-skill").map { it.name to it.url },
+        )
+    }
+
     @Test fun ignoresSkillTalkThatIsNotAboutClaude() {
         assertEquals(emptyList<ClaudeSkills.Found>(), ClaudeSkills.find("Public speaking is the Best Life skill."))
     }

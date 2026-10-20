@@ -90,7 +90,14 @@ class Library(private val context: Context) {
         var reels = 0
         var links = 0
         var existing = 0
-        for (url in extractUrls(text)) {
+        val skills = ClaudeSkills.fromInstallCommands(text)
+        for (skill in skills) {
+            val (id, isNew) = addSkill(skill, sourceClipId = null)
+            if (isNew) links++ else existing++
+            if (groupId != null && id > 0) db.links().addToGroup(LinkGroup(id, groupId))
+        }
+        val skillUrls = skills.map { it.url.lowercase() }.toSet()
+        for (url in extractUrls(text).filter { it.lowercase() !in skillUrls }) {
             if (isMediaUrl(url)) {
                 val found = db.clips().byUrl(url)
                 val id = if (found != null) {
@@ -109,6 +116,23 @@ class Library(private val context: Context) {
             }
         }
         return SaveResult(reels, links, existing)
+    }
+
+    /** Saves a Claude skill to Links. Returns its id and whether it's new. */
+    private suspend fun addSkill(skill: ClaudeSkills.Found, sourceClipId: Long?): Pair<Long, Boolean> {
+        db.links().byUrl(skill.url)?.let { return it.id to false }
+        // Skills with a page are read like any link; the rest keep what the reel says about them.
+        val id = db.links().insert(
+            SavedLink(
+                url = skill.url, title = skill.name, siteName = CLAUDE_SKILL,
+                description = if (skill.readPage) "" else skill.fromReel,
+                content = if (skill.readPage) "" else skill.fromReel,
+                sourceClipId = sourceClipId,
+                status = if (skill.readPage) LinkStatus.FETCHING else LinkStatus.READY,
+            )
+        )
+        if (id > 0 && skill.readPage) scope.launch { runFetchLink(id) }
+        return id to (id > 0)
     }
 
     /** Saves a website and fetches its details in the background. Returns its id and whether it's new. */
@@ -133,7 +157,7 @@ class Library(private val context: Context) {
     private suspend fun runFetchLink(linkId: Long) {
         val link = db.links().get(linkId) ?: return
         if (ClaudeSkills.isSearch(link.url)) return
-        val skill = ClaudeSkills.nameFor(link.url)
+        val skill = ClaudeSkills.nameFor(link.url) ?: link.title.takeIf { link.siteName == CLAUDE_SKILL }
         val updated = try {
             val page = LinkFetcher.fetch(link.url)
             val image = File(linksDir, "link_$linkId.img")
@@ -169,20 +193,7 @@ class Library(private val context: Context) {
         val clip = db.clips().get(clipId) ?: return
         val text = listOf(clip.caption, clip.transcript).joinToString("\n")
         IdeaExtractor.findLinks(text, exclude = clip.sourceUrl).forEach { addLink(it, sourceClipId = clipId) }
-        for (skill in ClaudeSkills.find(text)) {
-            if (skill.readPage) {
-                addLink(skill.url, sourceClipId = clipId)
-            } else if (db.links().byUrl(skill.url) == null) {
-                // No page to read: keep what the reel says about it.
-                db.links().insert(
-                    SavedLink(
-                        url = skill.url, title = skill.name, siteName = CLAUDE_SKILL,
-                        description = skill.fromReel, content = skill.fromReel,
-                        sourceClipId = clipId, status = LinkStatus.READY,
-                    )
-                )
-            }
-        }
+        ClaudeSkills.find(text).forEach { addSkill(it, sourceClipId = clipId) }
     }
 
     fun retry(clipId: Long) = scope.launch {
@@ -263,7 +274,7 @@ class Library(private val context: Context) {
         private val URL_REGEX = Regex("""https?://[^\s"'<>]+""")
 
         /** Bump when link finding gets better, to scan saved reels again. */
-        private const val LINK_SCAN_VERSION = 3
+        private const val LINK_SCAN_VERSION = 4
 
         /** Site name shown for Claude skills in Links. */
         const val CLAUDE_SKILL = "Claude skill"
@@ -271,7 +282,9 @@ class Library(private val context: Context) {
         fun extractUrls(text: String): List<String> {
             val urls = URL_REGEX.findAll(text).map { normalize(it.value) }.distinct().toList()
             // Typed without https:// ("excalidraw.com") or just a tool's name ("Notion").
-            return urls.ifEmpty { IdeaExtractor.findLinks(text) }
+            return urls.ifEmpty {
+                IdeaExtractor.findLinks(text) + ClaudeSkills.fromInstallCommands(text).map { it.url }
+            }
         }
 
         /** Drops tracking parameters so the same reel or page shared twice is saved once. */
