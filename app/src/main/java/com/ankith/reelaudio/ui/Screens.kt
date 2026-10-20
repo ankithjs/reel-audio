@@ -128,7 +128,7 @@ internal fun AppSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (LocalInlineSheets.current) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = Panel) {
             Column(Modifier.padding(top = 24.dp), content = content)
         }
     } else if (state != null) {

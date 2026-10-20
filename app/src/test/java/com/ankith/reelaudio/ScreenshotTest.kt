@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -23,6 +22,7 @@ import com.ankith.reelaudio.transcribe.ModelState
 import com.ankith.reelaudio.data.TranscriptStatus
 import com.ankith.reelaudio.ui.AppController
 import com.ankith.reelaudio.ui.AppRoot
+import com.ankith.reelaudio.ui.ReelTheme
 import com.ankith.reelaudio.ui.ClipSheet
 import com.ankith.reelaudio.ui.LinkSheet
 import com.ankith.reelaudio.data.LinkStatus
@@ -63,7 +63,7 @@ class ScreenshotTest {
 
     @Composable
     private fun Sheet(content: @Composable () -> Unit) {
-        MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFF9E7BFF))) {
+        ReelTheme {
             CompositionLocalProvider(LocalInlineSheets provides true) {
                 Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0F)), contentAlignment = Alignment.BottomCenter) {
                     content()
