@@ -72,8 +72,6 @@ internal fun LinksList(links: List<SavedLink>, vm: AppController, filtered: Bool
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(Icons.Default.Link, null, Modifier.size(56.dp), tint = Accent)
-            Spacer(Modifier.height(16.dp))
             Text(if (filtered) "No links here yet." else "Save your first link", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             Text(
@@ -105,7 +103,7 @@ private fun LinkRow(link: SavedLink, fromClip: String?, onClick: () -> Unit) {
             )
             Text(
                 link.siteName.ifBlank { link.url.substringAfter("://").substringBefore('/') },
-                style = MaterialTheme.typography.labelMedium, color = Accent,
+                style = MaterialTheme.typography.labelMedium, color = Faint,
             )
             val sub = when (link.status) {
                 LinkStatus.FAILED -> link.error
@@ -183,7 +181,7 @@ internal fun LinkSheet(link: SavedLink, groups: List<GroupWithCount>, vm: AppCon
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(link.title.ifBlank { link.url }, style = MaterialTheme.typography.titleMedium, maxLines = 3)
-                    Text(link.siteName, color = Accent, style = MaterialTheme.typography.labelLarge)
+                    Text(link.siteName, color = Faint, style = MaterialTheme.typography.labelLarge)
                 }
             }
             vm.clipTitle(link.sourceClipId)?.let {
@@ -270,7 +268,7 @@ internal fun MentionedLinks(clip: Clip, vm: AppController) {
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Link, null, tint = Accent)
+                Icon(Icons.Default.Link, null, Modifier.size(20.dp), tint = Faint)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(l.title.ifBlank { l.url }, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)

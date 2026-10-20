@@ -15,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ankith.reelaudio.library
@@ -32,7 +31,7 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         CookieManager.getInstance().setAcceptCookie(true)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            ReelTheme {
                 Column(Modifier.fillMaxSize()) {
                     TopAppBar(
                         title = { Text("Sign in to Instagram") },

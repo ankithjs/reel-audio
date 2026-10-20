@@ -81,9 +81,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -118,8 +118,6 @@ import com.ankith.reelaudio.transcribe.SpeechModel
 import com.ankith.reelaudio.playback.PlayerUi
 import java.io.File
 
-internal val Accent = Color(0xFF9E7BFF)
-
 /** Screenshot tests flip this to draw sheets inline, since popups aren't captured. */
 val LocalInlineSheets = staticCompositionLocalOf { false }
 
@@ -142,7 +140,7 @@ internal fun AppSheet(
 
 @Composable
 fun AppRoot(vm: AppController, pendingShare: String?, initialTab: Int = 0, onShareHandled: () -> Unit) {
-    MaterialTheme(colorScheme = darkColorScheme(primary = Accent, secondary = Accent)) {
+    ReelTheme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             LibraryScreen(vm, pendingShare, onShareHandled, initialTab)
         }
@@ -192,7 +190,7 @@ internal fun LibraryScreen(
                             placeholder = { Text(if (tab == 0) "Search title, author, caption" else "Search links") },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
-                    } else Text("Reel Audio", fontWeight = FontWeight.Bold)
+                    } else Text("Reel Audio", fontWeight = FontWeight.SemiBold)
                 },
                 actions = {
                     IconButton(onClick = {
@@ -204,7 +202,9 @@ internal fun LibraryScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, "Add a reel or link") }
+            FloatingActionButton(
+                onClick = { showAdd = true }, containerColor = Color.White, contentColor = Color.Black,
+            ) { Icon(Icons.Default.Add, "Add a reel or link") }
         },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
@@ -218,9 +218,9 @@ internal fun LibraryScreen(
                 onLongPress = { editGroup = it },
                 onNew = { showNewGroup = true },
             )
-            TabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Audio · ${clips.size}") })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Links · ${links.size}") })
+            TabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = { HorizontalDivider(color = Line) }) {
+                Tab(selected = tab == 0, onClick = { tab = 0 }, unselectedContentColor = Faint, text = { Text("Audio · ${clips.size}") })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, unselectedContentColor = Faint, text = { Text("Links · ${links.size}") })
             }
             if (tab == 1) {
                 LinksList(links, vm, filtered = selected != null || query.isNotBlank(), onOpen = { sheetLink = it })
@@ -324,14 +324,17 @@ internal fun GroupChips(
             val isSel = selected == g.id
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = if (isSel) Accent.copy(alpha = 0.25f) else Color.Transparent,
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) Accent else Color.Gray),
+                color = if (isSel) Line else Color.Transparent,
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) Line else ControlLine),
                 modifier = Modifier.padding(top = 8.dp, bottom = 8.dp).height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .combinedClickable(onClick = { onSelect(g.id) }, onLongClick = { onLongPress(g) }),
             ) {
                 Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                    Text("${g.name} · ${g.count}", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        "${g.name} · ${g.count}", style = MaterialTheme.typography.labelLarge,
+                        color = if (isSel) Color.White else Muted,
+                    )
                 }
             }
         }
@@ -352,8 +355,6 @@ internal fun EmptyState(filtered: Boolean) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Default.MusicNote, null, Modifier.size(56.dp), tint = Accent)
-        Spacer(Modifier.height(16.dp))
         Text(
             if (filtered) "Nothing here yet." else "Save your first reel",
             style = MaterialTheme.typography.titleMedium,
@@ -376,7 +377,7 @@ internal fun Thumb(
     placeholder: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.MusicNote,
 ) {
     Box(
-        Modifier.size(size.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF2A2440)),
+        Modifier.size(size.dp).clip(RoundedCornerShape(8.dp)).background(Raised),
         contentAlignment = Alignment.Center,
     ) {
         if (path.isNotBlank() && File(path).exists()) {
@@ -384,7 +385,7 @@ internal fun Thumb(
                 model = File(path), contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
             )
-        } else Icon(placeholder, null, tint = Accent)
+        } else Icon(placeholder, null, Modifier.size((size * 0.4f).dp), tint = Faint)
     }
 }
 
@@ -429,12 +430,13 @@ internal fun ClipRow(clip: Clip, playing: Boolean, onClick: () -> Unit, onMore: 
 
 @Composable
 internal fun MiniPlayer(p: PlayerUi, vm: AppController, onOpen: () -> Unit) {
-    Surface(tonalElevation = 6.dp) {
+    Surface(color = Panel) {
         Column {
             if (p.durationMs > 0) LinearProgressIndicator(
                 progress = { (p.positionMs.toFloat() / p.durationMs).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
-            )
+                color = Accent, trackColor = Line, drawStopIndicator = {}, gapSize = 0.dp,
+            ) else HorizontalDivider(color = Line)
             Row(
                 Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -470,13 +472,13 @@ internal fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: AppController, onDism
         ) {
             Box(Modifier.fillMaxWidth(0.7f).aspectRatio(1f)) {
                 Box(
-                    Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(Color(0xFF2A2440)),
+                    Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(Raised),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (p.artwork.isNotBlank() && File(p.artwork).exists()) AsyncImage(
                         model = File(p.artwork), contentDescription = null,
                         contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
-                    ) else Icon(Icons.Default.MusicNote, null, Modifier.size(72.dp), tint = Accent)
+                    ) else Icon(Icons.Default.MusicNote, null, Modifier.size(64.dp), tint = Faint)
                 }
             }
             Spacer(Modifier.height(20.dp))
@@ -489,11 +491,14 @@ internal fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: AppController, onDism
                 onValueChange = { dragging = true; dragPos = it },
                 onValueChangeFinished = { vm.player.seekTo(dragPos.toLong()); dragging = false },
                 valueRange = 0f..(p.durationMs.coerceAtLeast(1).toFloat()),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White, activeTrackColor = Accent, inactiveTrackColor = Line,
+                ),
             )
             Row(Modifier.fillMaxWidth()) {
-                Text(formatTime(p.positionMs), style = MaterialTheme.typography.labelSmall)
+                Text(formatTime(p.positionMs), style = MaterialTheme.typography.labelSmall, color = Faint)
                 Spacer(Modifier.weight(1f))
-                Text(formatTime(p.durationMs), style = MaterialTheme.typography.labelSmall)
+                Text(formatTime(p.durationMs), style = MaterialTheme.typography.labelSmall, color = Faint)
             }
             Row(
                 Modifier.fillMaxWidth(),
@@ -514,13 +519,13 @@ internal fun NowPlayingSheet(p: PlayerUi, clip: Clip?, vm: AppController, onDism
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { vm.player.toggleShuffle() }) {
-                    Icon(Icons.Default.Shuffle, "Shuffle", tint = if (p.shuffle) Accent else Color.Gray)
+                    Icon(Icons.Default.Shuffle, "Shuffle", tint = if (p.shuffle) Color.White else Faint)
                 }
                 IconButton(onClick = { vm.player.cycleRepeat() }) {
                     Icon(
                         if (p.repeatMode == Player.REPEAT_MODE_ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                         "Repeat",
-                        tint = if (p.repeatMode == Player.REPEAT_MODE_OFF) Color.Gray else Accent,
+                        tint = if (p.repeatMode == Player.REPEAT_MODE_OFF) Faint else Color.White,
                     )
                 }
                 TextButton(onClick = { vm.player.cycleSpeed() }) { Text("${p.speed}x") }
